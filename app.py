@@ -492,9 +492,7 @@ def fmt_dt(dt):
     if not dt:
         return "—"
     hour = dt.strftime("%I").lstrip("0") or "0"
-    now_local = datetime.now(ZoneInfo(st.session_state.canvas_timezone))
-    year_part = f" {dt.year}" if dt.year != now_local.year else ""
-    return f"{dt.strftime('%a %b')} {dt.day}{year_part}, {hour}:{dt.strftime('%M %p')}"
+    return f"{dt.strftime('%a %b')} {dt.day}, {hour}:{dt.strftime('%M %p')}"
 
 
 def school_year_start(now):
@@ -572,11 +570,16 @@ def get_courses(include_older=False):
             continue
 
         seen.add(course_id)
+        grades = e.get("grades") or {}
         current.append({
             "id": course_id,
             "name": c.get("name") or c.get("course_code") or f"Course {course_id}",
             "course_code": c.get("course_code"),
             "enrollment_created_at": created,
+            "current_score": grades.get("current_score"),
+            "current_grade": grades.get("current_grade"),
+            "final_score": grades.get("final_score"),
+            "final_grade": grades.get("final_grade"),
         })
 
     value = sorted(current, key=lambda x: x["name"].lower())
@@ -717,6 +720,28 @@ st.markdown(
     .green .summary-icon {background:#E5F1E6; color:#4C9463;} .green strong{color:#4C9463;}
     .blue .summary-icon {background:#E5EEF7; color:#3E78AC;} .blue strong{color:#3E78AC;}
 
+    .grades-heading {
+        margin:.45rem 0 .65rem 0; color:#3C5763; font-size:1.05rem; font-weight:800;
+    }
+    .grade-grid {
+        display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+        gap:12px; clear:both; margin:.65rem 0 1.1rem;
+    }
+    .grade-card {
+        background:#FFFDF9; border:1px solid rgba(60,87,99,.14); border-radius:16px;
+        padding:.9rem 1rem; box-shadow:0 4px 12px rgba(61,52,47,.045);
+    }
+    .grade-course {
+        font-size:.82rem; line-height:1.25; font-weight:750; color:#3D4E58;
+        min-height:2.05em; margin-bottom:.4rem;
+    }
+    .grade-value {
+        font-size:1.55rem; line-height:1.05; font-weight:850; color:#3C5763;
+    }
+    .grade-letter {
+        font-size:.82rem; color:#766B64; margin-top:.28rem; font-weight:650;
+    }
+
     .priority-shell {
         background:#FFFDF9; border:1px solid rgba(60,87,99,.14); border-radius:16px 16px 0 0;
         overflow:hidden; box-shadow:0 5px 15px rgba(61,52,47,.05);
@@ -759,6 +784,10 @@ st.markdown(
 
     @media (max-width: 1000px) {
         .summary-grid {grid-template-columns:repeat(2,1fr);}
+        .grade-grid {grid-template-columns:repeat(2,1fr);}
+    }
+    @media (max-width: 640px) {
+        .grade-grid {grid-template-columns:1fr;}
     }
     </style>
     """,
@@ -1013,15 +1042,6 @@ if not rows:
 
 df = pd.DataFrame(rows)
 
-# Some current Canvas courses can contain stale copied assignments with due dates
-# from a previous school year. Hide those from this parent dashboard so an old
-# Oct/Nov/Dec assignment does not appear as "Missing" in the current school year.
-current_school_year_start = school_year_start(now)
-df = df[
-    df["Due_dt"].isna()
-    | (df["Due_dt"] >= current_school_year_start)
-].copy()
-
 if not show_no_due:
     df = df[df["Due_dt"].notna()]
 if not show_no_canvas_submission:
@@ -1075,6 +1095,37 @@ st.markdown(
     '<div class="refresh-pill">Parent UI 2.6 · Auto-refresh: every 5 minutes</div>',
     unsafe_allow_html=True,
 )
+
+# ---------- Overall course grades ----------
+grade_cards = []
+for course in selected_courses:
+    course_name = html.escape(str(course.get("name") or "Course"))
+    score = course.get("current_score")
+    letter = course.get("current_grade")
+
+    if isinstance(score, (int, float)):
+        score_text = f"{score:.1f}%"
+    else:
+        score_text = "—"
+
+    letter_text = html.escape(str(letter)) if letter not in (None, "") else "Not posted"
+
+    grade_cards.append(
+        f"""
+        <div class="grade-card">
+            <div class="grade-course">{course_name}</div>
+            <div class="grade-value">{score_text}</div>
+            <div class="grade-letter">{letter_text}</div>
+        </div>
+        """
+    )
+
+if grade_cards:
+    st.markdown('<div class="grades-heading">Current Overall Grades</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="grade-grid">' + "".join(grade_cards) + '</div>',
+        unsafe_allow_html=True,
+    )
 
 active = df[(~df["_submitted"]) & df["Due_dt"].notna()].copy()
 missing_count = int(active["Dashboard status"].isin(["Missing", "Overdue"]).sum())

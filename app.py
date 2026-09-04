@@ -1016,16 +1016,39 @@ if not show_no_due:
 if not show_no_canvas_submission:
     df = df[df["Status"] != "No Canvas submission"]
 
-# Add tomorrow as its own status for the parent-facing dashboard.
+# Recalculate the parent-facing status from the actual due date.
+# This deliberately overrides Canvas's premature `missing` flag for future work.
 tomorrow = (now + pd.Timedelta(days=1)).date()
 df["Dashboard status"] = df["Status"]
+
+future_unsubmitted = (~df["_submitted"]) & df["Due_dt"].notna() & (df["Due_dt"] >= now)
+
+# Anything Canvas calls Missing/Overdue cannot remain in that bucket if its due date
+# is still in the future.
+df.loc[future_unsubmitted, "Dashboard status"] = "Upcoming"
+
 df.loc[
-    (~df["_submitted"])
-    & df["Due_dt"].notna()
-    & (df["Due_dt"].apply(lambda x: x.date() if x is not None else None) == tomorrow)
-    & (~df["Status"].isin(["Missing", "Overdue", "Due today"])),
+    future_unsubmitted
+    & (df["Due_dt"].apply(lambda x: x.date() if x is not None else None) == now.date()),
+    "Dashboard status",
+] = "Due today"
+
+df.loc[
+    future_unsubmitted
+    & (df["Due_dt"].apply(lambda x: x.date() if x is not None else None) == tomorrow),
     "Dashboard status",
 ] = "Due tomorrow"
+
+# Missing/Overdue is reserved for genuinely past-due, unsubmitted work.
+past_unsubmitted = (~df["_submitted"]) & df["Due_dt"].notna() & (df["Due_dt"] < now)
+df.loc[
+    past_unsubmitted & df["_missing"],
+    "Dashboard status",
+] = "Missing"
+df.loc[
+    past_unsubmitted & (~df["_missing"]),
+    "Dashboard status",
+] = "Overdue"
 
 # ---------- Main header ----------
 st.markdown(
@@ -1038,7 +1061,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="refresh-pill">Parent UI 2.4 · Auto-refresh: every 5 minutes</div>',
+    '<div class="refresh-pill">Parent UI 2.5 · Auto-refresh: every 5 minutes</div>',
     unsafe_allow_html=True,
 )
 

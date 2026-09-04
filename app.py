@@ -75,12 +75,6 @@ st.markdown(
         box-shadow: 0 5px 14px rgba(60, 87, 99, 0.16);
     }
 
-    /* Inputs */
-    div[data-baseweb="input"] > div,
-    div[data-baseweb="select"] > div,
-    div[data-baseweb="base-input"] {
-        border-radius: 11px !important;
-    }
 
     /* Metrics as cards */
     div[data-testid="stMetric"] {
@@ -201,29 +195,6 @@ st.markdown(
         color: #3D342F !important;
     }
 
-    /* Inputs and dropdowns */
-    input,
-    textarea,
-    div[data-baseweb="input"] > div,
-    div[data-baseweb="select"] > div,
-    div[data-baseweb="base-input"] {
-        background: #FFFDF9 !important;
-        color: #3D342F !important;
-        border-color: rgba(60, 87, 99, 0.24) !important;
-    }
-
-    input::placeholder,
-    textarea::placeholder {
-        color: #8A7D74 !important;
-        opacity: 1 !important;
-    }
-
-    /* Dropdown text */
-    div[data-baseweb="select"] span,
-    div[data-baseweb="popover"] *,
-    ul[role="listbox"] * {
-        color: #3D342F !important;
-    }
 
     /* Primary buttons - kill the red */
     button[kind="primary"],
@@ -285,6 +256,29 @@ st.markdown(
         color: #3C5763 !important;
     }
 
+
+
+    /* Safer Streamlit widget styling for Community Cloud */
+    div[data-testid="stTextInput"] input {
+        background: #FFFDF9 !important;
+        color: #3D342F !important;
+        border-radius: 10px !important;
+    }
+
+    div[data-testid="stTextInput"] input::placeholder {
+        color: #8A7D74 !important;
+        opacity: 1 !important;
+    }
+
+    div[data-testid="stTextInput"] label,
+    div[data-testid="stSelectbox"] label {
+        color: #3D342F !important;
+        font-weight: 600 !important;
+    }
+
+    div[data-testid="stSelectbox"] > div > div {
+        border-radius: 10px !important;
+    }
 
     /* Final contrast fixes */
     div[data-testid="stExpander"] summary {
@@ -619,7 +613,7 @@ if not st.session_state.connected:
         """
         <div class="instruction-card">
             <span class="soft-badge">Private session</span>
-            <span class="soft-badge">5-minute refresh</span>
+            <span class="soft-badge">5-minute refresh</span>\n            <span class="soft-badge">Cloud build 1.1</span>
             <p style="margin:.8rem 0 0 0;">
                 Connect your Canvas account below. Your token is used only for this browser session
                 and is not saved to a file by the dashboard.
@@ -656,28 +650,36 @@ If you do not see **+ New Access Token**, your school may have disabled manual a
         "Only enter it into a dashboard you trust."
     )
 
-    with st.form("connect_form"):
-        base_url = st.text_input(
-            "Canvas URL",
-            placeholder="https://your-school.instructure.com",
-            help="Use the Canvas site you normally log into.",
-        )
-        token = st.text_input(
-            "Canvas access token",
-            type="password",
-            help="The token stays in this Streamlit session. It is not written to a file.",
-        )
-        timezone = st.selectbox(
-            "Time zone",
-            [
-                "America/Los_Angeles",
-                "America/Denver",
-                "America/Chicago",
-                "America/New_York",
-            ],
-            index=0,
-        )
-        submitted = st.form_submit_button("Connect to Canvas", type="primary", use_container_width=True)
+    base_url = st.text_input(
+        "Canvas URL",
+        placeholder="https://your-school.instructure.com",
+        help="Use the Canvas site you normally log into.",
+        key="connect_canvas_url",
+    )
+    token = st.text_input(
+        "Canvas access token",
+        type="password",
+        help="The token stays in this Streamlit session. It is not written to a file.",
+        key="connect_canvas_token",
+    )
+    timezone = st.selectbox(
+        "Time zone",
+        [
+            "America/Los_Angeles",
+            "America/Denver",
+            "America/Chicago",
+            "America/New_York",
+        ],
+        index=0,
+        key="connect_canvas_timezone",
+    )
+
+    submitted = st.button(
+        "Connect to Canvas",
+        type="primary",
+        use_container_width=True,
+        key="connect_canvas_button",
+    )
 
     if submitted:
         normalized = normalize_canvas_url(base_url)

@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import html
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from urllib.parse import urlparse
@@ -711,18 +712,25 @@ st.markdown(
     .green .summary-icon {background:#E5F1E6; color:#4C9463;} .green strong{color:#4C9463;}
     .blue .summary-icon {background:#E5EEF7; color:#3E78AC;} .blue strong{color:#3E78AC;}
 
-    .priority-card {
-        background:#FFFDF9; border:1px solid rgba(60,87,99,.14); border-radius:16px;
-        overflow:hidden; min-height:390px; box-shadow:0 5px 15px rgba(61,52,47,.05);
-        margin-bottom:1rem;
+    .priority-shell {
+        background:#FFFDF9; border:1px solid rgba(60,87,99,.14); border-radius:16px 16px 0 0;
+        overflow:hidden; box-shadow:0 5px 15px rgba(61,52,47,.05);
+        margin-bottom:0;
     }
     .priority-title {font-size:1rem; font-weight:800; padding:.9rem 1rem; border-bottom:1px solid #EEE7DF;}
     .coral-line {border-left:4px solid #E36B4D;} .coral-line .priority-title{color:#C9482B;}
     .gold-line {border-left:4px solid #D9A03B;} .gold-line .priority-title{color:#B77B17;}
     .green-line {border-left:4px solid #65A979;} .green-line .priority-title{color:#3F8053;}
     .blue-line {border-left:4px solid #4E87BB;} .blue-line .priority-title{color:#2E6B9F;}
-    .priority-body {padding:0 .9rem;}
-    .assignment-item {display:flex; justify-content:space-between; gap:.5rem; padding:.85rem .05rem; border-bottom:1px solid #EFE8E1;}
+    .priority-body {
+        padding:0 .9rem; background:#FFFDF9;
+        border-left:1px solid rgba(60,87,99,.14);
+        border-right:1px solid rgba(60,87,99,.14);
+    }
+    .assignment-link {display:block; text-decoration:none !important; color:inherit !important; border-radius:10px;}
+    .assignment-link:hover {background:#F5F1EB; transform:translateY(-1px);}
+    .assignment-link:hover .assignment-name {color:#2F6E7C !important;}
+    .assignment-item {display:flex; justify-content:space-between; gap:.5rem; padding:.85rem .35rem; border-bottom:1px solid #EFE8E1; transition:background .15s ease, transform .15s ease;}
     .assignment-copy {min-width:0;}
     .course-name {font-size:.76rem; color:#6F6964; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
     .assignment-name {font-size:.9rem; font-weight:750; color:#283B46; margin:.14rem 0; line-height:1.25;}
@@ -1027,7 +1035,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="refresh-pill">Parent UI 2.1 · Auto-refresh: every 5 minutes</div>',
+    '<div class="refresh-pill">Parent UI 2.3 · Auto-refresh: every 5 minutes</div>',
     unsafe_allow_html=True,
 )
 
@@ -1062,44 +1070,63 @@ st.markdown(
 def due_text(row):
     return row["Due"] if row["Due"] != "—" else "No due date"
 
-def assignment_card_html(title, rows_df, css_class, empty_message, limit=4):
-    if rows_df.empty:
-        body = f'<div class="empty-state">{empty_message}</div>'
-        extra = ""
-    else:
-        parts = []
-        for _, r in rows_df.head(limit).iterrows():
-            status = r["Dashboard status"]
-            badge_class = {
-                "Missing": "badge-missing",
-                "Overdue": "badge-missing",
-                "Due today": "badge-today",
-                "Due tomorrow": "badge-tomorrow",
-                "Upcoming": "badge-upcoming",
-            }.get(status, "badge-upcoming")
-            parts.append(
-                f"""
-                <div class="assignment-item">
-                    <div class="assignment-copy">
-                        <div class="course-name">{r['Course']}</div>
-                        <div class="assignment-name">{r['Assignment']}</div>
-                        <div class="due-line">Due {due_text(r)}</div>
-                    </div>
-                    <span class="status-badge {badge_class}">{status}</span>
-                </div>
-                """
-            )
-        remaining = max(0, len(rows_df) - limit)
-        extra = f'<div class="more-line">+ {remaining} more</div>' if remaining else ""
-        body = "".join(parts)
+def assignment_items_html(rows_df, limit=None):
+    shown = rows_df if limit is None else rows_df.head(limit)
+    if shown.empty:
+        return '<div class="empty-state">Nothing here 🎉</div>'
 
-    return f"""
-    <div class="priority-card {css_class}">
-        <div class="priority-title">{title}</div>
-        <div class="priority-body">{body}</div>
-        {extra}
-    </div>
-    """
+    parts = []
+    for _, r in shown.iterrows():
+        status = r["Dashboard status"]
+        badge_class = {
+            "Missing": "badge-missing",
+            "Overdue": "badge-missing",
+            "Due today": "badge-today",
+            "Due tomorrow": "badge-tomorrow",
+            "Upcoming": "badge-upcoming",
+        }.get(status, "badge-upcoming")
+
+        url = html.escape(str(r.get("URL") or ""), quote=True)
+        course = html.escape(str(r["Course"]))
+        assignment = html.escape(str(r["Assignment"]))
+        due = html.escape(str(due_text(r)))
+        safe_status = html.escape(str(status))
+
+        card = f"""
+        <div class="assignment-item">
+            <div class="assignment-copy">
+                <div class="course-name">{course}</div>
+                <div class="assignment-name">{assignment}</div>
+                <div class="due-line">Due {due}</div>
+            </div>
+            <span class="status-badge {badge_class}">{safe_status}</span>
+        </div>
+        """
+        if url:
+            card = f'<a class="assignment-link" href="{url}" target="_blank" rel="noopener noreferrer">{card}</a>'
+        parts.append(card)
+    return "".join(parts)
+
+def render_priority_panel(title, rows_df, css_class, empty_message, state_key, limit=4):
+    expanded = st.session_state.get(state_key, False)
+    shown = rows_df if expanded else rows_df.head(limit)
+
+    st.markdown(
+        f'<div class="priority-shell {css_class}"><div class="priority-title">{title}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    if rows_df.empty:
+        st.markdown(f'<div class="empty-state">{empty_message}</div>', unsafe_allow_html=True)
+    else:
+        st.html(f'<div class="priority-body">{assignment_items_html(shown)}</div>')
+
+    remaining = max(0, len(rows_df) - limit)
+    if remaining > 0:
+        label = "Show less" if expanded else f"+ {remaining} more"
+        if st.button(label, key=f"{state_key}_button", use_container_width=True):
+            st.session_state[state_key] = not expanded
+            st.rerun()
 
 missing_df = active[active["Dashboard status"].isin(["Missing", "Overdue"])].sort_values(
     ["Due_dt", "Course", "Assignment"]
@@ -1118,13 +1145,13 @@ upcoming_df = active[
 
 c1, c2, c3, c4 = st.columns(4, gap="small")
 with c1:
-    st.html(assignment_card_html("Missing / Overdue", missing_df, "coral-line", "Nothing missing 🎉"))
+    render_priority_panel("Missing / Overdue", missing_df, "coral-line", "Nothing missing 🎉", "expand_missing")
 with c2:
-    st.html(assignment_card_html("Due Today", today_df, "gold-line", "Nothing due today"))
+    render_priority_panel("Due Today", today_df, "gold-line", "Nothing due today", "expand_today")
 with c3:
-    st.html(assignment_card_html("Due Tomorrow", tomorrow_df, "green-line", "Nothing due tomorrow"))
+    render_priority_panel("Due Tomorrow", tomorrow_df, "green-line", "Nothing due tomorrow", "expand_tomorrow")
 with c4:
-    st.html(assignment_card_html("Upcoming (Next 7 Days)", upcoming_df, "blue-line", "Nothing upcoming"))
+    render_priority_panel("Upcoming (Next 7 Days)", upcoming_df, "blue-line", "Nothing upcoming", "expand_upcoming")
 
 # ---------- All assignments ----------
 st.markdown("## All Assignments")

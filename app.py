@@ -492,7 +492,9 @@ def fmt_dt(dt):
     if not dt:
         return "—"
     hour = dt.strftime("%I").lstrip("0") or "0"
-    return f"{dt.strftime('%a %b')} {dt.day}, {hour}:{dt.strftime('%M %p')}"
+    now_local = datetime.now(ZoneInfo(st.session_state.canvas_timezone))
+    year_part = f" {dt.year}" if dt.year != now_local.year else ""
+    return f"{dt.strftime('%a %b')} {dt.day}{year_part}, {hour}:{dt.strftime('%M %p')}"
 
 
 def school_year_start(now):
@@ -1011,6 +1013,15 @@ if not rows:
 
 df = pd.DataFrame(rows)
 
+# Some current Canvas courses can contain stale copied assignments with due dates
+# from a previous school year. Hide those from this parent dashboard so an old
+# Oct/Nov/Dec assignment does not appear as "Missing" in the current school year.
+current_school_year_start = school_year_start(now)
+df = df[
+    df["Due_dt"].isna()
+    | (df["Due_dt"] >= current_school_year_start)
+].copy()
+
 if not show_no_due:
     df = df[df["Due_dt"].notna()]
 if not show_no_canvas_submission:
@@ -1061,7 +1072,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="refresh-pill">Parent UI 2.5 · Auto-refresh: every 5 minutes</div>',
+    '<div class="refresh-pill">Parent UI 2.6 · Auto-refresh: every 5 minutes</div>',
     unsafe_allow_html=True,
 )
 

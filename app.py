@@ -616,14 +616,17 @@ def assignment_row(course, a, now):
 
     if sub.get("excused"):
         status = "Excused"
-    elif missing:
-        status = "Missing"
     elif submitted and sub.get("grade") is not None:
         status = "Graded"
     elif submitted:
         status = "Submitted"
     elif not actionable and due:
         status = "No Canvas submission"
+    # Canvas can sometimes flag an unsubmitted assignment as "missing"
+    # even when its due date is still in the future. For this dashboard,
+    # "Missing" means the due date has actually passed.
+    elif due and due < now and missing:
+        status = "Missing"
     elif due and due < now:
         status = "Overdue"
     elif due and due.date() == now.date():
@@ -649,7 +652,7 @@ def assignment_row(course, a, now):
         "Submitted?": "Yes" if submitted else ("N/A" if not actionable else "No"),
         "Submitted at": fmt_dt(submitted_at),
         "Late?": "Yes" if late else "No",
-        "Missing?": "Yes" if missing else "No",
+        "Missing?": "Yes" if (missing and due and due < now) else "No",
         "Grade": grade if grade is not None else "—",
         "Score": score if score is not None else "—",
         "Points possible": points_possible if points_possible is not None else "—",
@@ -1035,7 +1038,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="refresh-pill">Parent UI 2.3 · Auto-refresh: every 5 minutes</div>',
+    '<div class="refresh-pill">Parent UI 2.4 · Auto-refresh: every 5 minutes</div>',
     unsafe_allow_html=True,
 )
 

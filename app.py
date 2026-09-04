@@ -1027,7 +1027,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="refresh-pill">Parent UI 2.0 · Auto-refresh: every 5 minutes</div>',
+    '<div class="refresh-pill">Parent UI 2.1 · Auto-refresh: every 5 minutes</div>',
     unsafe_allow_html=True,
 )
 
@@ -1118,13 +1118,13 @@ upcoming_df = active[
 
 c1, c2, c3, c4 = st.columns(4, gap="small")
 with c1:
-    st.markdown(assignment_card_html("Missing / Overdue", missing_df, "coral-line", "Nothing missing 🎉"), unsafe_allow_html=True)
+    st.html(assignment_card_html("Missing / Overdue", missing_df, "coral-line", "Nothing missing 🎉"))
 with c2:
-    st.markdown(assignment_card_html("Due Today", today_df, "gold-line", "Nothing due today"), unsafe_allow_html=True)
+    st.html(assignment_card_html("Due Today", today_df, "gold-line", "Nothing due today"))
 with c3:
-    st.markdown(assignment_card_html("Due Tomorrow", tomorrow_df, "green-line", "Nothing due tomorrow"), unsafe_allow_html=True)
+    st.html(assignment_card_html("Due Tomorrow", tomorrow_df, "green-line", "Nothing due tomorrow"))
 with c4:
-    st.markdown(assignment_card_html("Upcoming (Next 7 Days)", upcoming_df, "blue-line", "Nothing upcoming"), unsafe_allow_html=True)
+    st.html(assignment_card_html("Upcoming (Next 7 Days)", upcoming_df, "blue-line", "Nothing upcoming"))
 
 # ---------- All assignments ----------
 st.markdown("## All Assignments")

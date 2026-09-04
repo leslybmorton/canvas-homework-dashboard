@@ -721,25 +721,51 @@ st.markdown(
     .blue .summary-icon {background:#E5EEF7; color:#3E78AC;} .blue strong{color:#3E78AC;}
 
     .grades-heading {
-        margin:.45rem 0 .65rem 0; color:#3C5763; font-size:1.05rem; font-weight:800;
+        margin:.35rem 0 .5rem 0;
+        color:#3C5763;
+        font-size:1rem;
+        font-weight:800;
     }
     .grade-grid {
-        display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
-        gap:12px; clear:both; margin:.65rem 0 1.1rem;
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
+        gap:8px;
+        clear:both;
+        margin:.45rem 0 1rem;
     }
     .grade-card {
-        background:#FFFDF9; border:1px solid rgba(60,87,99,.14); border-radius:16px;
-        padding:.9rem 1rem; box-shadow:0 4px 12px rgba(61,52,47,.045);
+        background:rgba(255,253,249,.82);
+        border:1px solid rgba(60,87,99,.10);
+        border-radius:14px;
+        padding:.65rem .75rem;
+        box-shadow:0 2px 8px rgba(61,52,47,.035);
+        min-width:0;
     }
     .grade-course {
-        font-size:.82rem; line-height:1.25; font-weight:750; color:#3D4E58;
-        min-height:2.05em; margin-bottom:.4rem;
+        font-size:.74rem;
+        line-height:1.2;
+        font-weight:700;
+        color:#5B666B;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        margin-bottom:.3rem;
+    }
+    .grade-row {
+        display:flex;
+        align-items:baseline;
+        gap:.42rem;
     }
     .grade-value {
-        font-size:1.55rem; line-height:1.05; font-weight:850; color:#3C5763;
+        font-size:1.18rem;
+        line-height:1;
+        font-weight:800;
+        color:#3C5763;
     }
     .grade-letter {
-        font-size:.82rem; color:#766B64; margin-top:.28rem; font-weight:650;
+        font-size:.72rem;
+        color:#8A7D74;
+        font-weight:650;
     }
 
     .priority-shell {
@@ -784,10 +810,10 @@ st.markdown(
 
     @media (max-width: 1000px) {
         .summary-grid {grid-template-columns:repeat(2,1fr);}
-        .grade-grid {grid-template-columns:repeat(2,1fr);}
+        .grade-grid {grid-template-columns:repeat(3,1fr);}
     }
-    @media (max-width: 640px) {
-        .grade-grid {grid-template-columns:1fr;}
+    @media (max-width: 700px) {
+        .grade-grid {grid-template-columns:repeat(2,1fr);}
     }
     </style>
     """,
@@ -1092,7 +1118,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="refresh-pill">Parent UI 2.6 · Auto-refresh: every 5 minutes</div>',
+    '<div class="refresh-pill">Parent UI 2.7 · Auto-refresh: every 5 minutes</div>',
     unsafe_allow_html=True,
 )
 
@@ -1110,22 +1136,21 @@ for course in selected_courses:
 
     letter_text = html.escape(str(letter)) if letter not in (None, "") else "Not posted"
 
+    # Keep each card on one line so Streamlit/Markdown never interprets it as a code block.
     grade_cards.append(
-        f"""
-        <div class="grade-card">
-            <div class="grade-course">{course_name}</div>
-            <div class="grade-value">{score_text}</div>
-            <div class="grade-letter">{letter_text}</div>
-        </div>
-        """
+        f'<div class="grade-card">'
+        f'<div class="grade-course" title="{course_name}">{course_name}</div>'
+        f'<div class="grade-row">'
+        f'<div class="grade-value">{score_text}</div>'
+        f'<div class="grade-letter">{letter_text}</div>'
+        f'</div>'
+        f'</div>'
     )
 
 if grade_cards:
     st.markdown('<div class="grades-heading">Current Overall Grades</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="grade-grid">' + "".join(grade_cards) + '</div>',
-        unsafe_allow_html=True,
-    )
+    grade_html = '<div class="grade-grid">' + ''.join(grade_cards) + '</div>'
+    st.markdown(grade_html, unsafe_allow_html=True)
 
 active = df[(~df["_submitted"]) & df["Due_dt"].notna()].copy()
 missing_count = int(active["Dashboard status"].isin(["Missing", "Overdue"]).sum())

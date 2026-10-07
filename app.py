@@ -2,7 +2,7 @@ import os
 import time
 import json
 import html
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from urllib.parse import urlparse
 
@@ -487,6 +487,13 @@ def parse_dt(value):
     except Exception:
         return None
 
+
+def matches_due_date_range(due, start_date, end_date, include_no_due=False):
+    """Match inclusive calendar dates in the dashboard's selected time zone."""
+    if pd.isna(due):
+        return include_no_due
+    due_date = due.date()
+    return start_date <= due_date <= end_date
 
 def fmt_dt(dt):
     if not dt:
@@ -1014,6 +1021,22 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
+    st.markdown("### Due date")
+    filter_by_date = st.checkbox("Filter by due date", value=False, key="filter_by_due_date")
+    start_date = end_date = None
+    if filter_by_date:
+        local_today = datetime.now(ZoneInfo(st.session_state.canvas_timezone)).date()
+        start_date = st.date_input("Start date", value=local_today, key="due_start_date")
+        end_date = st.date_input(
+            "End date", value=local_today + timedelta(days=7), key="due_end_date"
+        )
+        if start_date is None or end_date is None:
+            st.warning("Choose both a start date and an end date.")
+            st.stop()
+        if start_date > end_date:
+            st.warning("The end date must be on or after the start date.")
+            st.stop()
+        st.caption("Includes both dates, using your selected time zone. Applies to all assignment lists and counts.")
     st.markdown("### Display")
     show_no_due = st.checkbox("Include assignments with no due date", value=False)
     show_no_canvas_submission = st.checkbox("Include 'No Canvas submission' items", value=True)
@@ -1073,6 +1096,16 @@ if not show_no_due:
 if not show_no_canvas_submission:
     df = df[df["Status"] != "No Canvas submission"]
 
+if filter_by_date:
+    date_mask = df["Due_dt"].apply(
+        lambda due: matches_due_date_range(due, start_date, end_date, show_no_due)
+    )
+    df = df.loc[date_mask].copy()
+else:
+    df = df.copy()
+
+if df.empty:
+    st.info("No assignments matched the current filters. Adjust the due dates or other sidebar filters.")
 # Recalculate the parent-facing status from the actual due date.
 # This deliberately overrides Canvas's premature `missing` flag for future work.
 tomorrow = (now + pd.Timedelta(days=1)).date()
@@ -1086,13 +1119,13 @@ df.loc[future_unsubmitted, "Dashboard status"] = "Upcoming"
 
 df.loc[
     future_unsubmitted
-    & (df["Due_dt"].apply(lambda x: x.date() if x is not None else None) == now.date()),
+    & (df["Due_dt"].apply(lambda x: x.date() if pd.notna(x) else None) == now.date()),
     "Dashboard status",
 ] = "Due today"
 
 df.loc[
     future_unsubmitted
-    & (df["Due_dt"].apply(lambda x: x.date() if x is not None else None) == tomorrow),
+    & (df["Due_dt"].apply(lambda x: x.date() if pd.notna(x) else None) == tomorrow),
     "Dashboard status",
 ] = "Due tomorrow"
 

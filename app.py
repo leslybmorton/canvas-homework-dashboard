@@ -1340,6 +1340,26 @@ table_df = all_df[
     "Points possible": "Points",
 })
 
+# Export the same rows and ordering shown in All Assignments.
+export_df = table_df.copy()
+export_df["Due"] = all_df["Due_dt"].apply(
+    lambda due: due.strftime("%Y-%m-%d %H:%M:%S%z") if pd.notna(due) else ""
+)
+export_filename = (
+    f"canvas_homework_{start_date.isoformat()}_to_{end_date.isoformat()}.csv"
+    if filter_by_date
+    else f"canvas_homework_{now.date().isoformat()}.csv"
+)
+st.caption(f"{len(table_df)} assignments match your filters.")
+st.download_button(
+    "Export filtered results (CSV)",
+    data=export_df.to_csv(index=False).encode("utf-8-sig"),
+    file_name=export_filename,
+    mime="text/csv",
+    key="export_filtered_assignments",
+    disabled=table_df.empty,
+    help="Download the assignments shown below. Opens in Excel or Google Sheets.",
+)
 st.dataframe(
     table_df,
     use_container_width=True,
